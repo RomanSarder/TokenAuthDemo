@@ -44,26 +44,27 @@ router.post('/register', function(req, res) {
                 })
             } else {
                 //if everything is ok create user and save
-                const newUser = new User({
+                User.create({
                     email: req.body.email,
                     password: req.body.password,
                     name: req.body.name
-                });
-                newUser.save(function(err) {
+                }, function(err, newUser) {
                     if (err) {
-                        console.log('Something went wrong');
+                        console.log(err);
+                    } else {
+                        // create a token
+                        let token = jwt.sign(newUser, app.get('superSecret'), {
+                            expiresIn: "24h", // expires in 24 hours
+                            issuer: newUser.name
+                        });
+                        // return the information including token as JSON
+                        res.status(201).json({
+                            success: true,
+                            message: 'Register successful, token sent',
+                            token: token
+                        });
                     }
-                    // create a token
-                    const token = jwt.sign(newUser, app.get('superSecret'), {
-                        expiresIn: "24h" // expires in 24 hours
-                    });
-                    // return the information including token as JSON
-                    res.status(201).json({
-                        success: true,
-                        message: 'Register successful, token sent',
-                        token: token
-                    });
-                })
+                });
             }
         }
     });
@@ -95,7 +96,7 @@ router.post('/login', function(req, res) {
 
             // if user is found and password is right
             // create a token
-            const token = jwt.sign(user, app.get('superSecret'), {
+            let token = jwt.sign(user, app.get('superSecret'), {
                 expiresIn: "24h" // expires in 24 hours
             });
 
@@ -111,6 +112,43 @@ router.post('/login', function(req, res) {
 
     });
 });
+router.get('/profile', checkToken, function(req, res) {
+    res.json({
+        name: req.decoded._doc.name,
+        email: req.decoded._doc.email
+    })
+});
+
+function checkToken(req, res, next) {
+    var token = req.body.token || req.query.token || req.headers['x-access-token'];
+
+    // decode token
+    if (token) {
+
+        // verifies secret and checks exp
+        jwt.verify(token, app.get('superSecret'), function(err, decoded) {
+            if (err) {
+                return res.json({ success: false, message: 'Failed to authenticate token.' });
+            } else {
+                // if everything is good, save to request for use in other routes
+                req.decoded = decoded;
+                next();
+            }
+        });
+
+    } else {
+
+        // if there is no token
+        // return an error
+        return res.status(401).send({
+            success: false,
+            message: 'No token provided.'
+        });
+
+    }
+
+}
+
 app.listen(3000, function() {
     console.log('Server started');
 });
