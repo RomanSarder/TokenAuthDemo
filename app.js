@@ -23,7 +23,7 @@ app.get('/', function(req, res) {
 });
 
 router.post('/register', function(req, res) {
-    User.find({ email: req.body.email }, function(err, user) {
+    User.findOne({ email: req.body.email }, function(err, user) {
         if (err) {
             console.log(err);
         } else if (user) {
@@ -32,24 +32,31 @@ router.post('/register', function(req, res) {
                 message: 'User with this email already exists'
             });
         } else {
-            const newUser = new User({
-                email: req.body.email,
-                password: req.body.password,
-                name: req.body.name
-            });
-            newUser.save(function(err) {
-                if (err) {
-                    console.log('Something went wrong');
-                }
-                const token = jwt.sign(newUser, app.get('superSecret'), {
-                    expiresIn: "24h" // expires in 24 hours
+            if (!req.body.email) {
+                res.status(400).json({
+                    success: false,
+                    message: 'Email wasn\'t provided'
+                })
+            } else {
+                const newUser = new User({
+                    email: req.body.email,
+                    password: req.body.password,
+                    name: req.body.name
                 });
-                res.status(201).json({
-                    success: true,
-                    message: 'Register successful, token sent',
-                    token: token
-                });
-            })
+                newUser.save(function(err) {
+                    if (err) {
+                        console.log('Something went wrong');
+                    }
+                    const token = jwt.sign(newUser, app.get('superSecret'), {
+                        expiresIn: "24h" // expires in 24 hours
+                    });
+                    res.status(201).json({
+                        success: true,
+                        message: 'Register successful, token sent',
+                        token: token
+                    });
+                })
+            }
         }
     });
 });
