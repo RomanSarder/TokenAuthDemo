@@ -120,7 +120,7 @@ router.get('/profile', checkToken, function(req, res) {
 });
 
 function checkToken(req, res, next) {
-    var token = req.body.token || req.query.token || req.headers['x-access-token'];
+    var token = req.body.token || req.query.token || req.headers['authorization'];
 
     // decode token
     if (token) {
@@ -137,6 +137,7 @@ function checkToken(req, res, next) {
         });
 
     } else {
+        console.log('token not found');
 
         // if there is no token
         // return an error
