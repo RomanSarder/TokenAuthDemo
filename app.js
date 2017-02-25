@@ -17,32 +17,54 @@ app.use(bodyParser.urlencoded({extended: true}));
 app.use(morgan('dev'));
 app.use('/api', router);
 
-router.get('/', function(req,res) {
+app.get('/', function(req,res) {
 	res.send('Hello');
 });
-router.get('/setup', function(req, res) {
 
-  // create a sample user
-  var nick = new User({ 
-    name: 'Nick Cerminara', 
-    password: 'password',
-    email: 'nick@gmail.com' 
-  });
-
-  // save the sample user
-  nick.save(function(err) {
-    if (err) throw err;
-
-    console.log('User saved successfully');
-    res.send('success');
-  });
-});
 router.get('/users', function(req, res) {
   User.find({}, function(err, users) {
     res.json(users);
   });
 });
 
+router.post('/login', function(req, res) {
+
+  // find the user
+  User.findOne({
+    username: req.body.username
+  }, function(err, user) {
+
+    if (err) throw err;
+
+    if (!user) {
+      res.json({ success: false, message: 'Authentication failed. User not found.' });
+    } else if (user) {
+
+      // check if password matches
+      if (user.password != req.body.password) {
+        res.json({ success: false, message: 'Authentication failed. Wrong password.' });
+      } else if(!req.body.email && !req.body.email == user.email ) {
+      	res.json({ success: false, message: 'Authentication failed. No email was provided. '})
+      } else {
+
+        // if user is found and password is right
+        // create a token
+        var token = jwt.sign(user, app.get('superSecret'), {
+          expiresIn: "24h" // expires in 24 hours
+        });
+
+        // return the information including token as JSON
+        res.json({
+          success: true,
+          message: 'Enjoy your token!',
+          token: token
+        });
+      }   
+
+    }
+
+  });
+});
 app.listen(3000, function() {
 	console.log('Server started');
 });
