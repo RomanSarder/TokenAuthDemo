@@ -1,14 +1,15 @@
 'use strict';
 //require packages
-let express = require('express');
-let app = express();
-let bodyParser = require('body-parser');
-let morgan = require('morgan');
-let mongoose = require('mongoose');
-let jwt = require('jsonwebtoken');
-let config = require('./config');
-let User = require('./models/user');
-let router = express.Router();
+const express = require('express');
+const app = express();
+const bodyParser = require('body-parser');
+const morgan = require('morgan');
+const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
+const config = require('./config');
+const User = require('./models/user');
+const router = express.Router();
+const expressJwt = require('express-jwt');
 //connect database
 mongoose.connect(config.database);
 app.set('superSecret', config.secret);
@@ -17,6 +18,11 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(morgan('dev'));
 app.use('/api', router);
+app.use(function(err, req, res, next) {
+    if (err.name === 'UnauthorizedError') {
+        res.status(401).send('invalid token...');
+    }
+});
 
 //index route
 app.get('/', function(req, res) {
@@ -54,7 +60,7 @@ router.post('/register', function(req, res) {
                     } else {
                         // create a token
                         let token = jwt.sign(newUser, app.get('superSecret'), {
-                            expiresIn: "24h", // expires in 24 hours
+                            expiresIn: '2 days', // expires in 2 days 
                             issuer: newUser.name
                         });
                         // return the information including token as JSON
@@ -80,6 +86,7 @@ router.post('/login', function(req, res) {
         if (err) throw err;
 
         if (!user) {
+            //if user is not found in db
             res.json({ success: false, message: 'Authentication failed. User not found.' });
         } else if (user) {
 
@@ -112,43 +119,13 @@ router.post('/login', function(req, res) {
 
     });
 });
-router.get('/profile', checkToken, function(req, res) {
+//using express-jwt middleware to fetch out and decode token 
+router.get('/profile', expressJwt({ secret: app.get('superSecret') }), function(req, res) {
     res.json({
-        name: req.decoded._doc.name,
-        email: req.decoded._doc.email
-    })
+        name: req.user._doc.name,
+        email: req.user._doc.email
+    });
 });
-
-function checkToken(req, res, next) {
-    var token = req.body.token || req.query.token || req.headers['authorization'];
-
-    // decode token
-    if (token) {
-
-        // verifies secret and checks exp
-        jwt.verify(token, app.get('superSecret'), function(err, decoded) {
-            if (err) {
-                return res.json({ success: false, message: 'Failed to authenticate token.' });
-            } else {
-                // if everything is good, save to request for use in other routes
-                req.decoded = decoded;
-                next();
-            }
-        });
-
-    } else {
-        console.log('token not found');
-
-        // if there is no token
-        // return an error
-        return res.status(401).send({
-            success: false,
-            message: 'No token provided.'
-        });
-
-    }
-
-}
 
 app.listen(3000, function() {
     console.log('Server started');
